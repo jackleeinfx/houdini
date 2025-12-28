@@ -1,0 +1,93 @@
+body {
+    margin: 0;
+    padding: 0;
+    background-color: #222;
+    color: white;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+
+#ui-container {
+    width: 800px;
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
+.hud-top {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+}
+
+#level-display {
+    font-size: 24px;
+    font-weight: bold;
+    color: #ffd700;
+}
+
+.bar-container {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.bar-label {
+    font-weight: bold;
+}
+
+.bar-bg {
+    width: 150px;
+    height: 15px;
+    background-color: #444;
+    border: 1px solid #666;
+    position: relative;
+}
+
+.bar-fill {
+    height: 100%;
+    width: 0%; /* To be set by JS */
+    transition: width 0.3s;
+}
+
+.hp-fill { background-color: #ff3333; width: 100%; }
+.xp-fill { background-color: #3388ff; }
+
+#equipment-overlay {
+    background: rgba(0, 0, 0, 0.7);
+    padding: 10px;
+    border: 1px solid #666;
+    min-width: 150px;
+    font-size: 14px;
+}
+
+#inventory-list {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.item {
+    padding: 3px;
+    background: #333;
+    cursor: pointer;
+}
+.item:hover {
+    background: #555;
+}
+
+#game-container {
+    position: relative;
+    box-shadow: 0 0 20px rgba(0,0,0,0.5);
+    border: 2px solid #444;
+}
+
+canvas {
+    background-color: #000;
+    display: block;
+}

@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RPG Gals Panic</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="ui-container">
+        <div class="hud-top">
+            <div id="level-display">Level 1</div>
+            <div class="bar-container">
+                <div class="bar-label">HP</div>
+                <div id="hp-bar-bg" class="bar-bg">
+                    <div id="hp-bar-fill" class="bar-fill hp-fill"></div>
+                </div>
+            </div>
+            <div class="bar-container">
+                <div class="bar-label">XP</div>
+                <div id="xp-bar-bg" class="bar-bg">
+                    <div id="xp-bar-fill" class="bar-fill xp-fill"></div>
+                </div>
+            </div>
+        </div>
+        <div id="equipment-overlay">
+            <h3>Inventory</h3>
+            <div id="inventory-list"></div>
+        </div>
+    </div>
+    <div id="game-container">
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+    </div>
+    <script src="game.js"></script>
+</body>
+</html>
