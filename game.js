@@ -81,6 +81,19 @@ canvas.addEventListener('mousedown', (e) => {
     shootSkill();
 });
 
+function logMessage(msg) {
+    const logContainer = document.getElementById('game-log');
+    if (!logContainer) return;
+
+    const entry = document.createElement('div');
+    entry.className = 'log-entry';
+    entry.innerText = `> ${msg}`;
+    logContainer.appendChild(entry);
+
+    // Scroll to bottom
+    logContainer.scrollTop = logContainer.scrollHeight;
+}
+
 function shootSkill() {
     // Basic Magic Bolt
     // Convert player grid pos to pixels
@@ -191,11 +204,11 @@ function updateProjectiles(deltaTime) {
 
 function damageEnemy(amount) {
     enemy.hp -= amount;
-    console.log(`Enemy took ${amount} damage. HP: ${enemy.hp}`);
+    // logMessage(`Enemy took ${amount} damage. HP: ${enemy.hp}`);
     // Flash enemy?
 
     if (enemy.hp <= 0) {
-        console.log("Enemy Defeated!");
+        logMessage("Enemy Defeated!");
         gainXp(500); // Bonus XP
         // Respawn stronger enemy
         resetEnemy(true);
@@ -209,6 +222,7 @@ function resetEnemy(makeStronger = false) {
     enemy.vy = 150 + (makeStronger ? 50 : 0);
     enemy.maxHp = 100 + (makeStronger ? 50 : 0);
     enemy.hp = enemy.maxHp;
+    logMessage(makeStronger ? "A stronger enemy appears!" : "Enemy respawned.");
 }
 
 function updateEnemy(deltaTime) {
@@ -221,26 +235,17 @@ function updateEnemy(deltaTime) {
     if (nextY < 0 || nextY > canvas.height) enemy.vy *= -1;
 
     // Grid Collision for bouncing
-    // Check points around the enemy's circumference
-    // Simplified: check center point for now, but better to check edges
-
-    // Check collision with filled areas (bounce)
-    // We need to convert pixel to grid coords
     const gridX = Math.floor(nextX / GRID_SIZE);
     const gridY = Math.floor(nextY / GRID_SIZE);
 
     if (gridX >= 0 && gridX < COLS && gridY >= 0 && gridY < ROWS) {
         if (grid[gridY][gridX] === TILE_FILLED) {
-             // Simple bounce - reverse both? No, need to know which side.
-             // Very simple logic: just reverse the direction that caused the collision.
-             // This is imperfect but works for basic cases.
              const prevGridX = Math.floor(enemy.x / GRID_SIZE);
              const prevGridY = Math.floor(enemy.y / GRID_SIZE);
 
              if (prevGridX !== gridX) enemy.vx *= -1;
              if (prevGridY !== gridY) enemy.vy *= -1;
 
-             // Recalculate next position
              nextX = enemy.x + enemy.vx * seconds;
              nextY = enemy.y + enemy.vy * seconds;
         }
@@ -271,7 +276,7 @@ function checkEnemyCollision() {
 
         if (gx >= 0 && gx < COLS && gy >= 0 && gy < ROWS) {
             if (grid[gy][gx] === TILE_TRAIL) {
-                console.log("Enemy hit the line! Player damage/die.");
+                logMessage("Enemy hit the line! Player took damage.");
                 takeDamage(50);
                 resetTrail();
                 return;
@@ -282,7 +287,7 @@ function checkEnemyCollision() {
     // Check collision with player
     const dist = Math.hypot(enemy.x - (player.x * GRID_SIZE + GRID_SIZE/2), enemy.y - (player.y * GRID_SIZE + GRID_SIZE/2));
     if (dist < GRID_SIZE/2 + enemy.radius) {
-         console.log("Enemy hit the player! Player damage/die.");
+         logMessage("Enemy hit the player!");
          takeDamage(30);
          resetPlayerPos();
          return;
@@ -323,16 +328,8 @@ function movePlayer() {
     const currentTile = grid[player.y][player.x];
     const nextTile = grid[nextY][nextX];
 
-    // Logic for moving
-    // 1. Moving on Safe (FILLED) -> Safe
-    // 2. Moving from Safe (FILLED) to Empty (EMPTY) -> Start Drawing (TRAIL)
-    // 3. Moving on Empty (EMPTY) -> Continue Drawing (TRAIL)
-    // 4. Moving from Empty (EMPTY) to Safe (FILLED) -> Close Shape
-    // 5. Moving into own Trail -> Game Over (TODO)
-
     if (nextTile === TILE_TRAIL) {
-        // Self collision - Game Over logic placeholder
-        console.log("Hit own trail!");
+        logMessage("You hit your own trail!");
         takeDamage(20);
         resetTrail();
         return;
@@ -345,7 +342,7 @@ function movePlayer() {
         grid[player.y][player.x] = TILE_TRAIL;
     } else if (nextTile === TILE_FILLED && currentTile === TILE_TRAIL) {
         // Closed the shape!
-        console.log("Shape closed!");
+        logMessage("Territory captured!");
         fillArea();
         player.dx = 0;
         player.dy = 0;
@@ -354,10 +351,6 @@ function movePlayer() {
 
 function fillArea() {
     // 1. Convert all Trail to Filled
-    // 2. Flood fill from Enemy position on a temp grid to find "Safe Empty"
-    // 3. Convert all other Empty to Filled
-
-    // Step 1: Solidify the trail
     for (let r = 0; r < ROWS; r++) {
         for (let c = 0; c < COLS; c++) {
             if (grid[r][c] === TILE_TRAIL) {
@@ -366,16 +359,13 @@ function fillArea() {
         }
     }
 
-    // Step 2: Flood Fill to identify empty space reachable by enemy
-    // Create a copy or a visited array
+    // 2. Flood Fill to identify empty space reachable by enemy
     const visited = new Array(ROWS).fill(0).map(() => new Array(COLS).fill(false));
     const queue = [];
 
-    // Get Enemy Grid Position
     const ex = Math.floor(enemy.x / GRID_SIZE);
     const ey = Math.floor(enemy.y / GRID_SIZE);
 
-    // If enemy is somehow outside grid or on filled (bug case), handle gracefully
     if (ex >= 0 && ex < COLS && ey >= 0 && ey < ROWS && grid[ey][ex] === TILE_EMPTY) {
         queue.push({x: ex, y: ey});
         visited[ey][ex] = true;
@@ -404,7 +394,7 @@ function fillArea() {
         }
     }
 
-    // Step 3: Fill everything that was NOT visited and is EMPTY
+    // 3. Fill everything that was NOT visited and is EMPTY
     let filledCount = 0;
     for (let r = 0; r < ROWS; r++) {
         for (let c = 0; c < COLS; c++) {
@@ -415,13 +405,13 @@ function fillArea() {
         }
     }
 
-    console.log(`Filled ${filledCount} blocks.`);
+    // logMessage(`Filled ${filledCount} blocks.`);
     gainXp(filledCount * 10);
 }
 
 function gainXp(amount) {
     playerStats.xp += amount;
-    console.log(`Gained ${amount} XP. Total: ${playerStats.xp}/${playerStats.xpToNext}`);
+    // logMessage(`Gained ${amount} XP.`);
 
     if (playerStats.xp >= playerStats.xpToNext) {
         levelUp();
@@ -434,23 +424,21 @@ function levelUp() {
     playerStats.xp -= playerStats.xpToNext;
     playerStats.xpToNext = Math.floor(playerStats.xpToNext * 1.5);
 
-    // Increase Stats
     playerStats.maxHp += 20;
     playerStats.hp = playerStats.maxHp;
     playerStats.attack += 5;
     playerStats.defense += 2;
 
-    // Increase Speed (lower ms per move)
     player.speed = Math.max(20, player.speed - 5);
 
-    console.log("Level Up! Level " + playerStats.level);
+    logMessage(`Level Up! You are now level ${playerStats.level}.`);
 
-    // Drop Item
     const randomItem = ITEMS[Math.floor(Math.random() * ITEMS.length)];
     playerStats.inventory.push(randomItem);
-    console.log("Got item: " + randomItem.name);
+    logMessage(`Found item: ${randomItem.name}`);
 
     renderInventory();
+    updateUI();
 }
 
 function renderInventory() {
@@ -472,6 +460,8 @@ function useItem(index) {
     const item = playerStats.inventory[index];
     if (!item) return;
 
+    logMessage(`Used ${item.name}`);
+
     if (item.type === 'heal') {
         playerStats.hp = Math.min(playerStats.maxHp, playerStats.hp + item.value);
         playerStats.inventory.splice(index, 1);
@@ -479,25 +469,24 @@ function useItem(index) {
         updateUI();
     } else if (item.type === 'speed') {
         player.speed = Math.max(10, player.speed - item.value);
-        // Equip items are permanent for now (simplified)
-        // Ideally we'd have slots, but consuming to upgrade is easier for prototype
         playerStats.inventory.splice(index, 1);
         renderInventory();
     } else if (item.type === 'attack') {
         playerStats.attack += item.value;
         playerStats.inventory.splice(index, 1);
         renderInventory();
+        updateUI();
     } else if (item.type === 'defense') {
         playerStats.defense += item.value;
         playerStats.inventory.splice(index, 1);
         renderInventory();
+        updateUI();
     }
 }
 
 function updateUI() {
-    // Placeholder for UI update
     const hpPercent = Math.max(0, (playerStats.hp / playerStats.maxHp) * 100);
-    const xpPercent = (playerStats.xp / playerStats.xpToNext) * 100;
+    const xpPercent = Math.min(100, (playerStats.xp / playerStats.xpToNext) * 100);
 
     const hpBar = document.getElementById('hp-bar-fill');
     if (hpBar) hpBar.style.width = hpPercent + '%';
@@ -505,28 +494,34 @@ function updateUI() {
     const xpBar = document.getElementById('xp-bar-fill');
     if (xpBar) xpBar.style.width = xpPercent + '%';
 
-    const levelDisplay = document.getElementById('level-display');
-    if (levelDisplay) levelDisplay.innerText = "Level " + playerStats.level;
+    const levelVal = document.getElementById('level-val');
+    if (levelVal) levelVal.innerText = playerStats.level;
+
+    const atkVal = document.getElementById('atk-val');
+    if (atkVal) atkVal.innerText = playerStats.attack;
+
+    const defVal = document.getElementById('def-val');
+    if (defVal) defVal.innerText = playerStats.defense;
 }
 
 function takeDamage(amount) {
-    // Defense mitigation (simple)
     const damage = Math.max(1, amount - Math.floor(playerStats.defense / 2));
     playerStats.hp -= damage;
-    console.log(`Took ${damage} damage. HP: ${playerStats.hp}/${playerStats.maxHp}`);
+    logMessage(`Took ${damage} damage.`);
 
     updateUI();
 
     if (playerStats.hp <= 0) {
-        console.log("Game Over");
-        resetGame(); // Soft reset for now
-        playerStats.hp = playerStats.maxHp; // Restore HP on reset
-        updateUI();
+        logMessage("GAME OVER! Resetting dungeon...");
+        setTimeout(() => {
+            resetGame();
+            playerStats.hp = playerStats.maxHp;
+            updateUI();
+        }, 2000);
     }
 }
 
 function resetGame() {
-    // Reset Grid
     for (let r = 0; r < ROWS; r++) {
         for (let c = 0; c < COLS; c++) {
             if (r === 0 || r === ROWS - 1 || c === 0 || c === COLS - 1) {
@@ -536,50 +531,91 @@ function resetGame() {
             }
         }
     }
-    // Reset Player
     player.x = Math.floor(COLS / 2);
     player.y = 0;
     player.dx = 0;
     player.dy = 0;
 
-    // Reset Enemy
     enemy.x = COLS / 2 * GRID_SIZE;
     enemy.y = ROWS / 2 * GRID_SIZE;
     enemy.vx = 150;
     enemy.vy = 150;
+
+    projectiles = [];
 }
 
+// Retro Rendering
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Draw Grid
+    // Draw Grid (Retro Style)
+    // We can optimize this by drawing a large background image instead of rects every frame
+    // But for 640x480 (32x24 grid), 768 rects is fine.
+
     for (let r = 0; r < ROWS; r++) {
         for (let c = 0; c < COLS; c++) {
-            if (grid[r][c] === TILE_FILLED) {
-                ctx.fillStyle = '#555'; // Safe area
-                ctx.fillRect(c * GRID_SIZE, r * GRID_SIZE, GRID_SIZE, GRID_SIZE);
-            } else if (grid[r][c] === TILE_TRAIL) {
-                ctx.fillStyle = '#ff0'; // Drawing line
-                ctx.fillRect(c * GRID_SIZE, r * GRID_SIZE, GRID_SIZE, GRID_SIZE);
+            const tile = grid[r][c];
+            const gx = c * GRID_SIZE;
+            const gy = r * GRID_SIZE;
+
+            if (tile === TILE_FILLED) {
+                // "Revealed" area - show a nice color or pattern
+                ctx.fillStyle = '#222';
+                ctx.fillRect(gx, gy, GRID_SIZE, GRID_SIZE);
+
+                // Optional: Draw a subtle grid line
+                ctx.strokeStyle = '#333';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(gx, gy, GRID_SIZE, GRID_SIZE);
+
+            } else if (tile === TILE_TRAIL) {
+                // Trail line
+                ctx.fillStyle = '#00ff00';
+                ctx.fillRect(gx, gy, GRID_SIZE, GRID_SIZE);
+                ctx.strokeStyle = '#fff';
+                ctx.strokeRect(gx, gy, GRID_SIZE, GRID_SIZE);
+            } else {
+                // Empty / Fog
+                // Checkerboard pattern for retro feel
+                if ((r + c) % 2 === 0) {
+                    ctx.fillStyle = '#000';
+                } else {
+                    ctx.fillStyle = '#0a0a0a';
+                }
+                ctx.fillRect(gx, gy, GRID_SIZE, GRID_SIZE);
             }
         }
     }
 
     // Draw Player
-    ctx.fillStyle = player.color;
-    ctx.fillRect(player.x * GRID_SIZE, player.y * GRID_SIZE, GRID_SIZE, GRID_SIZE);
+    const px = player.x * GRID_SIZE;
+    const py = player.y * GRID_SIZE;
+
+    // Draw simple "Hero" sprite (Triangle for now to look like a ship/arrow)
+    ctx.fillStyle = '#00ff00';
+    ctx.beginPath();
+    ctx.moveTo(px + GRID_SIZE/2, py);
+    ctx.lineTo(px + GRID_SIZE, py + GRID_SIZE);
+    ctx.lineTo(px, py + GRID_SIZE);
+    ctx.fill();
 
     // Draw Enemy
+    // Retro Boss Sprite (Red Circle with 'E')
     ctx.beginPath();
     ctx.arc(enemy.x, enemy.y, enemy.radius, 0, Math.PI * 2);
-    ctx.fillStyle = enemy.color;
+    ctx.fillStyle = '#ff0000';
     ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
     // Health bar for enemy
-    ctx.fillStyle = 'red';
-    ctx.fillRect(enemy.x - 10, enemy.y - 15, 20, 4);
-    ctx.fillStyle = 'green';
-    ctx.fillRect(enemy.x - 10, enemy.y - 15, 20 * (enemy.hp / enemy.maxHp), 4);
-    ctx.closePath();
+    const hpW = 20;
+    const hpH = 4;
+    ctx.fillStyle = '#444';
+    ctx.fillRect(enemy.x - hpW/2, enemy.y - enemy.radius - 8, hpW, hpH);
+    ctx.fillStyle = '#f00';
+    ctx.fillRect(enemy.x - hpW/2, enemy.y - enemy.radius - 8, hpW * (enemy.hp / enemy.maxHp), hpH);
 
     // Draw Projectiles
     projectiles.forEach(p => {
@@ -590,6 +626,10 @@ function draw() {
         ctx.closePath();
     });
 }
+
+// Initial UI Update
+updateUI();
+resetGame();
 
 // Start the game loop
 requestAnimationFrame(gameLoop);

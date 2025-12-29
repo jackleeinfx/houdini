@@ -1,93 +1,187 @@
 body {
     margin: 0;
     padding: 0;
-    background-color: #222;
-    color: white;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #111;
+    color: #eee;
+    font-family: 'Press Start 2P', cursive, monospace;
     display: flex;
-    flex-direction: column;
     justify-content: center;
     align-items: center;
     height: 100vh;
+    overflow: hidden;
 }
 
-#ui-container {
-    width: 800px;
-    margin-bottom: 10px;
+/* Main Layout */
+.main-layout {
     display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
+    flex-direction: row;
+    border: 4px double #888;
+    background-color: #222;
+    padding: 5px;
+    box-shadow: 0 0 20px rgba(0,0,0,0.8);
 }
 
-.hud-top {
+.game-area-container {
+    border: 2px solid #fff;
+    margin-right: 5px;
+    background-color: #000;
+}
+
+canvas {
+    display: block;
+    image-rendering: pixelated; /* Essential for retro feel */
+}
+
+/* Sidebar */
+.sidebar {
+    width: 260px;
     display: flex;
-    gap: 20px;
-    align-items: center;
-}
-
-#level-display {
-    font-size: 24px;
-    font-weight: bold;
-    color: #ffd700;
-}
-
-.bar-container {
-    display: flex;
-    align-items: center;
+    flex-direction: column;
     gap: 5px;
 }
 
-.bar-label {
-    font-weight: bold;
+.panel {
+    border: 2px solid #555;
+    background-color: #000;
+    padding: 8px;
+    position: relative;
 }
 
-.bar-bg {
-    width: 150px;
-    height: 15px;
-    background-color: #444;
+/* Fancy retro corners simulation */
+.panel::before {
+    content: '';
+    position: absolute;
+    top: 2px; left: 2px; right: 2px; bottom: 2px;
+    border: 1px dashed #333;
+    pointer-events: none;
+}
+
+.panel-title {
+    color: #ffd700;
+    text-align: center;
+    margin-bottom: 8px;
+    font-size: 12px;
+    text-shadow: 2px 2px #000;
+    border-bottom: 1px solid #444;
+    padding-bottom: 4px;
+}
+
+/* Portrait */
+.portrait-panel {
+    text-align: center;
+}
+
+.portrait-frame {
+    width: 100px;
+    height: 100px;
+    margin: 0 auto 5px auto;
+    border: 2px solid #fff;
+    background: #333;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.portrait-placeholder {
+    color: #666;
+    font-size: 10px;
+}
+
+.name-tag {
+    color: #00ffff;
+    font-size: 14px;
+}
+
+/* Stats */
+.status-panel {
+    font-size: 10px;
+}
+
+.stat-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 4px;
+}
+
+.stat-group {
+    margin-bottom: 6px;
+}
+
+.stat-label {
+    margin-bottom: 2px;
+    color: #aaa;
+}
+
+.bar-border {
+    height: 10px;
+    background-color: #222;
     border: 1px solid #666;
     position: relative;
 }
 
-.bar-fill {
+.bar-inner {
     height: 100%;
-    width: 0%; /* To be set by JS */
-    transition: width 0.3s;
+    transition: width 0.3s steps(5); /* Steppy transition for retro feel */
 }
 
-.hp-fill { background-color: #ff3333; width: 100%; }
+.hp-fill { background-color: #ff3333; }
 .xp-fill { background-color: #3388ff; }
 
-#equipment-overlay {
-    background: rgba(0, 0, 0, 0.7);
-    padding: 10px;
-    border: 1px solid #666;
-    min-width: 150px;
-    font-size: 14px;
+/* Inventory */
+.inventory-panel {
+    flex-grow: 1;
+    overflow-y: auto;
+    font-size: 10px;
+    min-height: 100px;
 }
 
 #inventory-list {
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: 4px;
 }
 
 .item {
-    padding: 3px;
-    background: #333;
     cursor: pointer;
+    padding: 2px 4px;
+    border: 1px solid transparent;
 }
+
 .item:hover {
-    background: #555;
+    background-color: #333;
+    border: 1px solid #666;
+    color: #fff;
 }
 
-#game-container {
-    position: relative;
-    box-shadow: 0 0 20px rgba(0,0,0,0.5);
-    border: 2px solid #444;
+/* Log */
+.log-panel {
+    height: 120px;
+    overflow-y: hidden;
+    display: flex;
+    flex-direction: column;
 }
 
-canvas {
-    background-color: #000;
-    display: block;
+#game-log {
+    font-size: 10px;
+    line-height: 1.4;
+    overflow-y: auto;
+    flex-grow: 1;
+    color: #aaa;
+    font-family: 'Courier New', monospace; /* Monospace sometimes better for logs */
+}
+
+.log-entry {
+    margin-bottom: 2px;
+    border-bottom: 1px solid #111;
+}
+
+/* Scrollbar styling for webkit */
+::-webkit-scrollbar {
+    width: 6px;
+}
+::-webkit-scrollbar-track {
+    background: #000;
+}
+::-webkit-scrollbar-thumb {
+    background: #444;
 }

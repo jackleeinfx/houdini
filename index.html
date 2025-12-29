@@ -1,35 +1,62 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RPG Gals Panic</title>
+    <title>Retro RPG Qix</title>
     <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 </head>
 <body>
-    <div id="ui-container">
-        <div class="hud-top">
-            <div id="level-display">Level 1</div>
-            <div class="bar-container">
-                <div class="bar-label">HP</div>
-                <div id="hp-bar-bg" class="bar-bg">
-                    <div id="hp-bar-fill" class="bar-fill hp-fill"></div>
+    <div class="main-layout">
+        <div class="game-area-container">
+            <canvas id="gameCanvas" width="640" height="480"></canvas>
+        </div>
+
+        <div class="sidebar">
+            <div class="panel portrait-panel">
+                <div class="portrait-frame">
+                    <div class="portrait-placeholder">HERO</div>
+                </div>
+                <div class="name-tag">ALEX</div>
+            </div>
+
+            <div class="panel status-panel">
+                <div class="panel-title">STATUS</div>
+                <div class="stat-row">LVL <span id="level-val">1</span></div>
+
+                <div class="stat-group">
+                    <div class="stat-label">HP</div>
+                    <div class="bar-border">
+                        <div id="hp-bar-fill" class="bar-inner hp-fill" style="width: 100%;"></div>
+                    </div>
+                </div>
+
+                <div class="stat-group">
+                    <div class="stat-label">XP</div>
+                    <div class="bar-border">
+                        <div id="xp-bar-fill" class="bar-inner xp-fill" style="width: 0%;"></div>
+                    </div>
+                </div>
+
+                <div class="stat-row">ATK <span id="atk-val">10</span></div>
+                <div class="stat-row">DEF <span id="def-val">5</span></div>
+            </div>
+
+            <div class="panel inventory-panel">
+                <div class="panel-title">INVENTORY</div>
+                <div id="inventory-list">
+                    <!-- Items go here -->
                 </div>
             </div>
-            <div class="bar-container">
-                <div class="bar-label">XP</div>
-                <div id="xp-bar-bg" class="bar-bg">
-                    <div id="xp-bar-fill" class="bar-fill xp-fill"></div>
+
+            <div class="panel log-panel">
+                <div class="panel-title">SYSTEM LOG</div>
+                <div id="game-log">
+                    <div class="log-entry">Welcome to the dungeon...</div>
                 </div>
             </div>
         </div>
-        <div id="equipment-overlay">
-            <h3>Inventory</h3>
-            <div id="inventory-list"></div>
-        </div>
-    </div>
-    <div id="game-container">
-        <canvas id="gameCanvas" width="800" height="600"></canvas>
     </div>
     <script src="game.js"></script>
 </body>
