@@ -62,8 +62,47 @@ const enemy = {
     vx: 150, // Pixels per second
     vy: 150,
     radius: 8,
-    color: '#ff0000'
+    color: '#ff0000',
+    hp: 100,
+    maxHp: 100
 };
+
+// Projectiles
+let projectiles = [];
+const mouse = { x: 0, y: 0 };
+
+canvas.addEventListener('mousemove', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    mouse.x = e.clientX - rect.left;
+    mouse.y = e.clientY - rect.top;
+});
+
+canvas.addEventListener('mousedown', (e) => {
+    shootSkill();
+});
+
+function shootSkill() {
+    // Basic Magic Bolt
+    // Convert player grid pos to pixels
+    const px = player.x * GRID_SIZE + GRID_SIZE / 2;
+    const py = player.y * GRID_SIZE + GRID_SIZE / 2;
+
+    const angle = Math.atan2(mouse.y - py, mouse.x - px);
+    const velocity = {
+        x: Math.cos(angle) * 300, // speed
+        y: Math.sin(angle) * 300
+    };
+
+    projectiles.push({
+        x: px,
+        y: py,
+        vx: velocity.x,
+        vy: velocity.y,
+        radius: 4,
+        color: '#00ffff',
+        damage: playerStats.attack
+    });
+}
 
 // Start player on the border
 player.x = Math.floor(COLS / 2);
@@ -84,10 +123,10 @@ function handleInput() {
     let nextDx = player.dx;
     let nextDy = player.dy;
 
-    if (keys['ArrowUp']) { nextDx = 0; nextDy = -1; }
-    else if (keys['ArrowDown']) { nextDx = 0; nextDy = 1; }
-    else if (keys['ArrowLeft']) { nextDx = -1; nextDy = 0; }
-    else if (keys['ArrowRight']) { nextDx = 1; nextDy = 0; }
+    if (keys['ArrowUp'] || keys['w'] || keys['W']) { nextDx = 0; nextDy = -1; }
+    else if (keys['ArrowDown'] || keys['s'] || keys['S']) { nextDx = 0; nextDy = 1; }
+    else if (keys['ArrowLeft'] || keys['a'] || keys['A']) { nextDx = -1; nextDy = 0; }
+    else if (keys['ArrowRight'] || keys['d'] || keys['D']) { nextDx = 1; nextDy = 0; }
     else {
         // Stop moving if no keys pressed?
         // In Qix, you usually stop when you release.
@@ -123,6 +162,53 @@ function update(deltaTime) {
 
     // Update Enemy
     updateEnemy(deltaTime);
+
+    // Update Projectiles
+    updateProjectiles(deltaTime);
+}
+
+function updateProjectiles(deltaTime) {
+    const seconds = deltaTime / 1000;
+    for (let i = projectiles.length - 1; i >= 0; i--) {
+        const p = projectiles[i];
+        p.x += p.vx * seconds;
+        p.y += p.vy * seconds;
+
+        // Remove if off screen
+        if (p.x < 0 || p.x > canvas.width || p.y < 0 || p.y > canvas.height) {
+            projectiles.splice(i, 1);
+            continue;
+        }
+
+        // Check collision with Enemy
+        const dist = Math.hypot(p.x - enemy.x, p.y - enemy.y);
+        if (dist < p.radius + enemy.radius) {
+            damageEnemy(p.damage);
+            projectiles.splice(i, 1);
+        }
+    }
+}
+
+function damageEnemy(amount) {
+    enemy.hp -= amount;
+    console.log(`Enemy took ${amount} damage. HP: ${enemy.hp}`);
+    // Flash enemy?
+
+    if (enemy.hp <= 0) {
+        console.log("Enemy Defeated!");
+        gainXp(500); // Bonus XP
+        // Respawn stronger enemy
+        resetEnemy(true);
+    }
+}
+
+function resetEnemy(makeStronger = false) {
+    enemy.x = COLS / 2 * GRID_SIZE;
+    enemy.y = ROWS / 2 * GRID_SIZE;
+    enemy.vx = 150 + (makeStronger ? 50 : 0);
+    enemy.vy = 150 + (makeStronger ? 50 : 0);
+    enemy.maxHp = 100 + (makeStronger ? 50 : 0);
+    enemy.hp = enemy.maxHp;
 }
 
 function updateEnemy(deltaTime) {
@@ -488,7 +574,21 @@ function draw() {
     ctx.arc(enemy.x, enemy.y, enemy.radius, 0, Math.PI * 2);
     ctx.fillStyle = enemy.color;
     ctx.fill();
+    // Health bar for enemy
+    ctx.fillStyle = 'red';
+    ctx.fillRect(enemy.x - 10, enemy.y - 15, 20, 4);
+    ctx.fillStyle = 'green';
+    ctx.fillRect(enemy.x - 10, enemy.y - 15, 20 * (enemy.hp / enemy.maxHp), 4);
     ctx.closePath();
+
+    // Draw Projectiles
+    projectiles.forEach(p => {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+        ctx.fillStyle = p.color;
+        ctx.fill();
+        ctx.closePath();
+    });
 }
 
 // Start the game loop
