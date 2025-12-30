@@ -35,7 +35,7 @@ const player = {
     baseSpeed: 50,
     currentSpeed: 50,
     moveTimer: 0,
-    facing: 0 // Angle in radians
+    facing: 0
 };
 
 // Weapons System
@@ -57,7 +57,7 @@ const playerStats = {
     lastAttackTime: 0
 };
 
-let attackVisuals = []; // Store visual effects for melee swings
+let attackVisuals = [];
 
 // Enemy Object Array
 let enemies = [];
@@ -108,27 +108,22 @@ function useWeapon() {
     const w = playerStats.weapon;
 
     if (w.type === 'melee') {
-        // Create Arc Hitbox
         attackVisuals.push({
             x: px, y: py, angle: angle,
             arc: w.arc, radius: w.range,
             color: w.color, duration: 200, startTime: now
         });
 
-        // Check Collisions immediately
         enemies.forEach((e, idx) => {
             const dist = Math.hypot(e.x - px, e.y - py);
             if (dist < w.range + e.radius) {
-                // Check angle
                 const angleToEnemy = Math.atan2(e.y - py, e.x - px);
                 let angleDiff = angleToEnemy - angle;
-                // Normalize to -PI to PI
                 while (angleDiff > Math.PI) angleDiff -= Math.PI*2;
                 while (angleDiff < -Math.PI) angleDiff += Math.PI*2;
 
                 if (Math.abs(angleDiff) < w.arc / 2) {
                     damageEnemy(idx, w.damage + playerStats.attack);
-                    // Push back
                     e.x += Math.cos(angleToEnemy) * 10;
                     e.y += Math.sin(angleToEnemy) * 10;
                 }
@@ -147,26 +142,31 @@ function useWeapon() {
     }
 }
 
-// ... (Input and Loop remain similar) ...
-
 let lastTime = 0;
 const keys = {};
 window.addEventListener('keydown', (e) => { keys[e.key] = true; });
 window.addEventListener('keyup', (e) => { keys[e.key] = false; });
 
 function handleInput() {
-    let nextDx = player.dx;
-    let nextDy = player.dy;
+    let nextDx = 0;
+    let nextDy = 0;
 
-    if (keys['ArrowUp'] || keys['w'] || keys['W']) { nextDx = 0; nextDy = -1; }
-    else if (keys['ArrowDown'] || keys['s'] || keys['S']) { nextDx = 0; nextDy = 1; }
-    else if (keys['ArrowLeft'] || keys['a'] || keys['A']) { nextDx = -1; nextDy = 0; }
-    else if (keys['ArrowRight'] || keys['d'] || keys['D']) { nextDx = 1; nextDy = 0; }
-    else { nextDx = 0; nextDy = 0; }
+    if (keys['ArrowUp'] || keys['w'] || keys['W']) { nextDy = -1; }
+    if (keys['ArrowDown'] || keys['s'] || keys['S']) { nextDy = 1; }
+    if (keys['ArrowLeft'] || keys['a'] || keys['A']) { nextDx = -1; }
+    if (keys['ArrowRight'] || keys['d'] || keys['D']) { nextDx = 1; }
 
-    if (player.dx !== 0 && nextDx === -player.dx && nextDy === 0) return;
-    if (player.dy !== 0 && nextDy === -player.dy && nextDx === 0) return;
+    // Allow stop? Standard Qix typically requires continuous movement once started in empty space,
+    // but RPG style often allows stop. Let's allow stop for now unless trail drawing logic forbids it.
+    // The previous code allowed stop: `else { nextDx = 0; nextDy = 0; }` implicitly.
 
+    // Prevent immediate reverse
+    if (player.dx !== 0 && nextDx === -player.dx && nextDy === -player.dy) {
+        // Simple rejection of full reverse
+        return;
+    }
+
+    // Update
     player.dx = nextDx;
     player.dy = nextDy;
 }
@@ -183,20 +183,23 @@ function gameLoop(timestamp) {
 }
 
 function update(deltaTime) {
-    // Update Camera Target
+    // Smooth Camera
     const targetCamX = player.x * GRID_SIZE + GRID_SIZE/2;
     const targetCamY = player.y * GRID_SIZE + GRID_SIZE/2;
-
-    // Smooth Camera
     camera.x += (targetCamX - camera.x) * 0.1;
     camera.y += (targetCamY - camera.y) * 0.1;
-
-    // Smooth Zoom
     camera.zoom += (camera.targetZoom - camera.zoom) * 0.05;
 
-    // Update Player
     player.moveTimer += deltaTime;
-    if (player.moveTimer >= player.currentSpeed) {
+    // Normalize speed for diagonal?
+    // If moving diagonal, we cover sqrt(2) distance in same time.
+    // To keep speed constant, we should increase delay by sqrt(2).
+    let speedDelay = player.currentSpeed;
+    if (player.dx !== 0 && player.dy !== 0) {
+        speedDelay *= 1.414;
+    }
+
+    if (player.moveTimer >= speedDelay) {
         player.moveTimer = 0;
         movePlayer();
     }
@@ -204,7 +207,6 @@ function update(deltaTime) {
     updateEnemies(deltaTime);
     updateProjectiles(deltaTime);
 
-    // Update Visuals
     const now = Date.now();
     for(let i=attackVisuals.length-1; i>=0; i--) {
         if(now - attackVisuals[i].startTime > attackVisuals[i].duration) {
@@ -295,10 +297,7 @@ function updateEnemies(deltaTime) {
 
         if (gx >= 0 && gx < WORLD_W && gy >= 0 && gy < WORLD_H) {
              if (grid[gy][gx] === TILE_FILLED) {
-                 // Erosion Logic: Destroy the wall
                  grid[gy][gx] = TILE_EMPTY;
-                 // Bounce to avoid getting stuck in now-empty space immediately?
-                 // Or just keep moving. Keep moving is fine, they are "eating" it.
                  enemy.vx *= -1;
                  enemy.vy *= -1;
              }
@@ -371,6 +370,16 @@ function movePlayer() {
         return;
     }
 
+    // Diagonal gap filling to prevent leaks
+    if (player.dx !== 0 && player.dy !== 0) {
+        // If moving diagonal, fill the 'corner' to ensure 4-connectivity
+        // e.g. from 0,0 to 1,1. Fill 1,0 or 0,1.
+        // Let's fill 1,0 (nextX, currentY)
+        if (grid[player.y][nextX] === TILE_EMPTY) {
+            grid[player.y][nextX] = TILE_TRAIL;
+        }
+    }
+
     player.x = nextX;
     player.y = nextY;
 
@@ -383,11 +392,13 @@ function movePlayer() {
     }
 }
 
-let totalFilled = 0; // Track total filled area for scaling
+let totalFilled = 0;
 
 function fillArea() {
+    // 1. Identify Bounds of the Trail (Optimization)
     let minR = WORLD_H, maxR = 0, minC = WORLD_W, maxC = 0;
 
+    // Solidify Trail
     for (let r = 0; r < WORLD_H; r++) {
         for (let c = 0; c < WORLD_W; c++) {
             if (grid[r][c] === TILE_TRAIL) {
@@ -400,11 +411,15 @@ function fillArea() {
         }
     }
 
-    minR = Math.max(0, minR - 1);
-    maxR = Math.min(WORLD_H - 1, maxR + 1);
-    minC = Math.max(0, minC - 1);
-    maxC = Math.min(WORLD_W - 1, maxC + 1);
+    // Add margin to bounds for BFS seed search
+    minR = Math.max(0, minR - 2);
+    maxR = Math.min(WORLD_H - 1, maxR + 2);
+    minC = Math.max(0, minC - 2);
+    maxC = Math.min(WORLD_W - 1, maxC + 2);
 
+    // 2. Global Unsafe BFS (Identify all areas reachable by enemies)
+    // 0 = Unknown/Safe?, 1 = Unsafe/Enemy
+    // Use Uint8Array for speed.
     const visited = new Uint8Array(WORLD_W * WORLD_H).fill(0);
     const queue = [];
 
@@ -413,6 +428,7 @@ function fillArea() {
         const ey = Math.floor(e.y / GRID_SIZE);
         if (ex >= 0 && ex < WORLD_W && ey >= 0 && ey < WORLD_H) {
              const idx = ey * WORLD_W + ex;
+             // Only seed if currently empty
              if (grid[ey][ex] === TILE_EMPTY) {
                  queue.push(idx);
                  visited[idx] = 1;
@@ -420,55 +436,103 @@ function fillArea() {
         }
     });
 
+    // Run Global BFS
     let head = 0;
     while(head < queue.length) {
         const idx = queue[head++];
         const cx = idx % WORLD_W;
         const cy = Math.floor(idx / WORLD_W);
 
-        if (cy > 0) checkNode(cx, cy - 1, visited, queue);
-        if (cy < WORLD_H - 1) checkNode(cx, cy + 1, visited, queue);
-        if (cx > 0) checkNode(cx - 1, cy, visited, queue);
-        if (cx < WORLD_W - 1) checkNode(cx + 1, cy, visited, queue);
+        // Check 4 neighbors
+        if (cy > 0) checkNodeGlobal(cx, cy - 1, visited, queue);
+        if (cy < WORLD_H - 1) checkNodeGlobal(cx, cy + 1, visited, queue);
+        if (cx > 0) checkNodeGlobal(cx - 1, cy, visited, queue);
+        if (cx < WORLD_W - 1) checkNodeGlobal(cx + 1, cy, visited, queue);
     }
 
+    // 3. Scan Bounding Box for SAFE seeds (Not Visited + Empty)
+    // And run Local Flood Fill to capture them.
     let filledCount = 0;
+
+    // We use a separate 'processed' map to avoid refilling same safe zone multiple times
+    // Re-use visited? No, visited is for Unsafe.
+    // Let's use `visited` with value 2 for "Filled/Safe".
+
     for (let r = minR; r <= maxR; r++) {
         for (let c = minC; c <= maxC; c++) {
             const idx = r * WORLD_W + c;
+
+            // If it is EMPTY and NOT visited (Unsafe), it is SAFE.
             if (grid[r][c] === TILE_EMPTY && visited[idx] === 0) {
-                grid[r][c] = TILE_FILLED;
-                filledCount++;
+                // Found a seed for a safe zone!
+                // Trigger Local Fill
+                filledCount += runLocalFill(c, r, visited);
             }
         }
     }
 
     gainXp(filledCount * 10);
-
     totalFilled += filledCount;
     updateDynamicProgression();
 }
 
-function updateDynamicProgression() {
-    // Requirements: Speed Increases, Zoom Increases (Camera Zooms OUT -> scale decreases)
-    // Scale factor based on totalFilled
-    // Max filled approx 640000.
+function checkNodeGlobal(x, y, visited, queue) {
+    const idx = y * WORLD_W + x;
+    if (grid[y][x] === TILE_EMPTY && visited[idx] === 0) {
+        visited[idx] = 1;
+        queue.push(idx);
+    }
+}
 
-    const fillRatio = Math.min(1.0, totalFilled / 100000); // Soft cap for scaling
+function runLocalFill(startX, startY, visited) {
+    let count = 0;
+    const localQueue = [];
+
+    const startIdx = startY * WORLD_W + startX;
+    localQueue.push(startIdx);
+    visited[startIdx] = 2; // Mark as processed/Filling
+    grid[startY][startX] = TILE_FILLED; // Fill immediately
+    count++;
+
+    let head = 0;
+    while(head < localQueue.length) {
+        const idx = localQueue[head++];
+        const cx = idx % WORLD_W;
+        const cy = Math.floor(idx / WORLD_W);
+
+        // Expand neighbors
+        // Note: We don't check bounds inside 'if' because we trust the Grid logic,
+        // but let's be safe.
+        const neighbors = [
+            {x: cx, y: cy-1},
+            {x: cx, y: cy+1},
+            {x: cx-1, y: cy},
+            {x: cx+1, y: cy}
+        ];
+
+        for(let n of neighbors) {
+            if(n.x >= 0 && n.x < WORLD_W && n.y >= 0 && n.y < WORLD_H) {
+                const nIdx = n.y * WORLD_W + n.x;
+                if (grid[n.y][n.x] === TILE_EMPTY && visited[nIdx] === 0) {
+                    visited[nIdx] = 2; // Mark processed
+                    grid[n.y][n.x] = TILE_FILLED; // Fill
+                    localQueue.push(nIdx);
+                    count++;
+                }
+            }
+        }
+    }
+    return count;
+}
+
+function updateDynamicProgression() {
+    const fillRatio = Math.min(1.0, totalFilled / 200000); // 200k tiles cap
 
     // Zoom: 1.0 -> 0.3
     camera.targetZoom = 1.0 - (fillRatio * 0.7);
 
     // Speed: 50 -> 10 (Lower is faster)
     player.currentSpeed = Math.max(10, player.baseSpeed - (fillRatio * 40));
-}
-
-function checkNode(x, y, visited, queue) {
-    const idx = y * WORLD_W + x;
-    if (grid[y][x] === TILE_EMPTY && visited[idx] === 0) {
-        visited[idx] = 1;
-        queue.push(idx);
-    }
 }
 
 function gainXp(amount) {
@@ -551,7 +615,7 @@ function resetGame() {
     camera.y = player.y * GRID_SIZE;
 
     enemies = [];
-    for(let i=0; i<30; i++) spawnEnemy(); // Increased enemy count
+    for(let i=0; i<30; i++) spawnEnemy();
 
     projectiles = [];
     updateUI();
@@ -612,11 +676,10 @@ function draw() {
     ctx.lineTo(px, py + GRID_SIZE);
     ctx.fill();
 
-    // Draw Weapon Swing
     attackVisuals.forEach(vis => {
         ctx.beginPath();
         ctx.arc(vis.x, vis.y, vis.radius, vis.angle - vis.arc/2, vis.angle + vis.arc/2);
-        ctx.lineWidth = 10; // Wide swing
+        ctx.lineWidth = 10;
         ctx.strokeStyle = vis.color;
         ctx.stroke();
     });
