@@ -43,7 +43,7 @@ const player = {
     dx: 0,
     dy: 0,
     color: '#00ff00',
-    baseSpeed: 50, // Local copy of config logic
+    baseSpeed: 50,
     currentSpeed: 50,
     moveTimer: 0,
     facing: 0,
@@ -80,6 +80,7 @@ let totalFilled = 0;
 // UI Elements
 const settingsOverlay = document.getElementById('settings-overlay');
 const trailGaugeFill = document.getElementById('trail-gauge-fill');
+const stepCounter = document.getElementById('step-counter');
 
 // --- Input & Events ---
 
@@ -121,7 +122,6 @@ function loadSettingsToUI() {
     document.getElementById('cfg-speed-growth').value = gameConfig.playerSpeedGrowth;
     document.getElementById('cfg-trail-limit').value = gameConfig.playerBaseTrail;
     document.getElementById('cfg-trail-growth').value = gameConfig.playerTrailGrowth;
-    updateSettingLabels();
 }
 
 function applySettings() {
@@ -132,24 +132,10 @@ function applySettings() {
     gameConfig.playerSpeedGrowth = parseInt(document.getElementById('cfg-speed-growth').value);
     gameConfig.playerBaseTrail = parseInt(document.getElementById('cfg-trail-limit').value);
     gameConfig.playerTrailGrowth = parseInt(document.getElementById('cfg-trail-growth').value);
+
+    // Apply immediate effects that don't rely on resetGame
+    updateDynamicProgression();
 }
-
-function updateSettingLabels() {
-    document.getElementById('val-enemy-count').innerText = document.getElementById('cfg-enemy-count').value;
-    document.getElementById('val-spawn-rate').innerText = document.getElementById('cfg-spawn-rate').value;
-    document.getElementById('val-enemy-speed').innerText = document.getElementById('cfg-enemy-speed').value;
-    document.getElementById('val-player-speed').innerText = document.getElementById('cfg-player-speed').value;
-    document.getElementById('val-speed-growth').innerText = document.getElementById('cfg-speed-growth').value;
-    document.getElementById('val-trail-limit').innerText = document.getElementById('cfg-trail-limit').value;
-    document.getElementById('val-trail-growth').innerText = document.getElementById('cfg-trail-growth').value;
-}
-
-// Add listeners to update labels live
-const inputs = settingsOverlay.querySelectorAll('input');
-inputs.forEach(input => {
-    input.addEventListener('input', updateSettingLabels);
-});
-
 
 // --- Game Logic ---
 
@@ -291,13 +277,18 @@ function update(deltaTime) {
         }
     }
 
-    // Update Trail Gauge
-    const trailPercent = Math.max(0, ((player.maxTrail - player.currentTrail) / player.maxTrail) * 100);
+    // Update Trail Gauge & Steps
+    const remainingSteps = Math.max(0, player.maxTrail - player.currentTrail);
+    const trailPercent = (remainingSteps / player.maxTrail) * 100;
+
     if (trailGaugeFill) {
         trailGaugeFill.style.width = trailPercent + '%';
-        // Change color if low
         if (trailPercent < 20) trailGaugeFill.style.backgroundColor = '#ff0000';
         else trailGaugeFill.style.backgroundColor = '#00ff00';
+    }
+
+    if (stepCounter) {
+        stepCounter.innerText = `STEPS: ${remainingSteps} / ${player.maxTrail}`;
     }
 }
 
@@ -336,7 +327,6 @@ function damageEnemy(index, amount) {
     if (e.hp <= 0) {
         gainXp(50);
         enemies.splice(index, 1);
-        // Do not instantly spawn; rely on timer
     }
 }
 
@@ -358,7 +348,7 @@ function spawnEnemy() {
         enemies.push({
             x: ex * GRID_SIZE,
             y: ey * GRID_SIZE,
-            vx: (Math.random() - 0.5) * gameConfig.enemySpeed * 2, // Range -Speed to +Speed
+            vx: (Math.random() - 0.5) * gameConfig.enemySpeed * 2,
             vy: (Math.random() - 0.5) * gameConfig.enemySpeed * 2,
             radius: 8,
             color: '#ff0000',
@@ -459,8 +449,19 @@ function movePlayer() {
 
     // Check Trail Limit
     if (nextTile === TILE_EMPTY && player.currentTrail >= player.maxTrail) {
-        // Cannot move further
-        return;
+        // Overlimit: Deduct HP
+        const hpDeduction = 5;
+        playerStats.hp -= hpDeduction;
+        if (playerStats.hp <= 0) {
+            takeDamage(0); // Trigger game over sequence
+            return;
+        }
+
+        // Flash HUD red? Or just log
+        if (player.currentTrail === player.maxTrail) {
+             logMessage("Stamina depleted! Taking damage!");
+        }
+        updateUI();
     }
 
     // Diagonal gap filling

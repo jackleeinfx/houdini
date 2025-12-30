@@ -228,14 +228,21 @@ canvas {
 
 .setting-group {
     display: flex;
-    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
 }
 .setting-group label {
-    margin-bottom: 5px;
+    margin-right: 10px;
     color: #ffd700;
 }
 .setting-group input {
-    width: 100%;
+    width: 80px;
+    background: #000;
+    border: 1px solid #555;
+    color: #fff;
+    padding: 2px;
+    font-family: inherit;
+    text-align: right;
 }
 
 .button-row {
@@ -245,12 +252,24 @@ canvas {
 }
 
 /* Trail Gauge */
-#trail-gauge-container {
+#trail-ui-container {
     position: absolute;
     bottom: 5px;
     left: 50%;
     transform: translateX(-50%);
-    width: 200px;
+    width: 250px;
+    text-align: center;
+}
+
+#step-counter {
+    color: #fff;
+    font-size: 10px;
+    margin-bottom: 2px;
+    text-shadow: 1px 1px #000;
+}
+
+#trail-gauge-container {
+    width: 100%;
     height: 8px;
     background: rgba(0,0,0,0.5);
     border: 1px solid #fff;
