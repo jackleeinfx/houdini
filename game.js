@@ -17,6 +17,17 @@ for (let r = 0; r < WORLD_H; r++) {
     grid[r] = new Uint8Array(WORLD_W).fill(TILE_EMPTY);
 }
 
+// Global Game Configuration
+const gameConfig = {
+    enemyCount: 30,
+    enemySpawnRate: 3000, // ms
+    enemySpeed: 100, // pixels/sec
+    playerBaseSpeed: 50, // ms delay
+    playerSpeedGrowth: 40, // per 100k filled
+    playerBaseTrail: 15, // Grid steps
+    playerTrailGrowth: 10 // per 100k filled
+};
+
 // Camera System
 const camera = {
     x: 0,
@@ -32,10 +43,12 @@ const player = {
     dx: 0,
     dy: 0,
     color: '#00ff00',
-    baseSpeed: 50,
+    baseSpeed: 50, // Local copy of config logic
     currentSpeed: 50,
     moveTimer: 0,
-    facing: 0
+    facing: 0,
+    currentTrail: 0,
+    maxTrail: 15
 };
 
 // Weapons System
@@ -58,13 +71,17 @@ const playerStats = {
 };
 
 let attackVisuals = [];
-
-// Enemy Object Array
 let enemies = [];
-
-// Projectiles
 let projectiles = [];
+let enemySpawnTimer = 0;
 const mouse = { x: 0, y: 0, worldX: 0, worldY: 0 };
+let totalFilled = 0;
+
+// UI Elements
+const settingsOverlay = document.getElementById('settings-overlay');
+const trailGaugeFill = document.getElementById('trail-gauge-fill');
+
+// --- Input & Events ---
 
 canvas.addEventListener('mousemove', (e) => {
     const rect = canvas.getBoundingClientRect();
@@ -75,6 +92,66 @@ canvas.addEventListener('mousemove', (e) => {
 canvas.addEventListener('mousedown', (e) => {
     useWeapon();
 });
+
+document.getElementById('settings-btn').addEventListener('click', toggleSettings);
+document.getElementById('close-settings-btn').addEventListener('click', toggleSettings);
+document.getElementById('apply-btn').addEventListener('click', () => {
+    applySettings();
+    resetGame();
+    toggleSettings();
+});
+
+// Settings Logic
+function toggleSettings() {
+    if (settingsOverlay.classList.contains('hidden')) {
+        // Open
+        loadSettingsToUI();
+        settingsOverlay.classList.remove('hidden');
+    } else {
+        // Close
+        settingsOverlay.classList.add('hidden');
+    }
+}
+
+function loadSettingsToUI() {
+    document.getElementById('cfg-enemy-count').value = gameConfig.enemyCount;
+    document.getElementById('cfg-spawn-rate').value = gameConfig.enemySpawnRate;
+    document.getElementById('cfg-enemy-speed').value = gameConfig.enemySpeed;
+    document.getElementById('cfg-player-speed').value = gameConfig.playerBaseSpeed;
+    document.getElementById('cfg-speed-growth').value = gameConfig.playerSpeedGrowth;
+    document.getElementById('cfg-trail-limit').value = gameConfig.playerBaseTrail;
+    document.getElementById('cfg-trail-growth').value = gameConfig.playerTrailGrowth;
+    updateSettingLabels();
+}
+
+function applySettings() {
+    gameConfig.enemyCount = parseInt(document.getElementById('cfg-enemy-count').value);
+    gameConfig.enemySpawnRate = parseInt(document.getElementById('cfg-spawn-rate').value);
+    gameConfig.enemySpeed = parseInt(document.getElementById('cfg-enemy-speed').value);
+    gameConfig.playerBaseSpeed = parseInt(document.getElementById('cfg-player-speed').value);
+    gameConfig.playerSpeedGrowth = parseInt(document.getElementById('cfg-speed-growth').value);
+    gameConfig.playerBaseTrail = parseInt(document.getElementById('cfg-trail-limit').value);
+    gameConfig.playerTrailGrowth = parseInt(document.getElementById('cfg-trail-growth').value);
+}
+
+function updateSettingLabels() {
+    document.getElementById('val-enemy-count').innerText = document.getElementById('cfg-enemy-count').value;
+    document.getElementById('val-spawn-rate').innerText = document.getElementById('cfg-spawn-rate').value;
+    document.getElementById('val-enemy-speed').innerText = document.getElementById('cfg-enemy-speed').value;
+    document.getElementById('val-player-speed').innerText = document.getElementById('cfg-player-speed').value;
+    document.getElementById('val-speed-growth').innerText = document.getElementById('cfg-speed-growth').value;
+    document.getElementById('val-trail-limit').innerText = document.getElementById('cfg-trail-limit').value;
+    document.getElementById('val-trail-growth').innerText = document.getElementById('cfg-trail-growth').value;
+}
+
+// Add listeners to update labels live
+const inputs = settingsOverlay.querySelectorAll('input');
+inputs.forEach(input => {
+    input.addEventListener('input', updateSettingLabels);
+});
+
+
+// --- Game Logic ---
 
 function logMessage(msg) {
     const logContainer = document.getElementById('game-log');
@@ -156,17 +233,10 @@ function handleInput() {
     if (keys['ArrowLeft'] || keys['a'] || keys['A']) { nextDx = -1; }
     if (keys['ArrowRight'] || keys['d'] || keys['D']) { nextDx = 1; }
 
-    // Allow stop? Standard Qix typically requires continuous movement once started in empty space,
-    // but RPG style often allows stop. Let's allow stop for now unless trail drawing logic forbids it.
-    // The previous code allowed stop: `else { nextDx = 0; nextDy = 0; }` implicitly.
-
-    // Prevent immediate reverse
     if (player.dx !== 0 && nextDx === -player.dx && nextDy === -player.dy) {
-        // Simple rejection of full reverse
         return;
     }
 
-    // Update
     player.dx = nextDx;
     player.dy = nextDy;
 }
@@ -190,10 +260,16 @@ function update(deltaTime) {
     camera.y += (targetCamY - camera.y) * 0.1;
     camera.zoom += (camera.targetZoom - camera.zoom) * 0.05;
 
+    // Enemy Spawning
+    if (enemies.length < gameConfig.enemyCount) {
+        enemySpawnTimer += deltaTime;
+        if (enemySpawnTimer > gameConfig.enemySpawnRate) {
+            enemySpawnTimer = 0;
+            spawnEnemy();
+        }
+    }
+
     player.moveTimer += deltaTime;
-    // Normalize speed for diagonal?
-    // If moving diagonal, we cover sqrt(2) distance in same time.
-    // To keep speed constant, we should increase delay by sqrt(2).
     let speedDelay = player.currentSpeed;
     if (player.dx !== 0 && player.dy !== 0) {
         speedDelay *= 1.414;
@@ -207,11 +283,21 @@ function update(deltaTime) {
     updateEnemies(deltaTime);
     updateProjectiles(deltaTime);
 
+    // Update Visuals
     const now = Date.now();
     for(let i=attackVisuals.length-1; i>=0; i--) {
         if(now - attackVisuals[i].startTime > attackVisuals[i].duration) {
             attackVisuals.splice(i, 1);
         }
+    }
+
+    // Update Trail Gauge
+    const trailPercent = Math.max(0, ((player.maxTrail - player.currentTrail) / player.maxTrail) * 100);
+    if (trailGaugeFill) {
+        trailGaugeFill.style.width = trailPercent + '%';
+        // Change color if low
+        if (trailPercent < 20) trailGaugeFill.style.backgroundColor = '#ff0000';
+        else trailGaugeFill.style.backgroundColor = '#00ff00';
     }
 }
 
@@ -250,7 +336,7 @@ function damageEnemy(index, amount) {
     if (e.hp <= 0) {
         gainXp(50);
         enemies.splice(index, 1);
-        spawnEnemy();
+        // Do not instantly spawn; rely on timer
     }
 }
 
@@ -272,8 +358,8 @@ function spawnEnemy() {
         enemies.push({
             x: ex * GRID_SIZE,
             y: ey * GRID_SIZE,
-            vx: (Math.random() - 0.5) * 100,
-            vy: (Math.random() - 0.5) * 100,
+            vx: (Math.random() - 0.5) * gameConfig.enemySpeed * 2, // Range -Speed to +Speed
+            vy: (Math.random() - 0.5) * gameConfig.enemySpeed * 2,
             radius: 8,
             color: '#ff0000',
             hp: 100,
@@ -350,6 +436,7 @@ function resetTrail() {
     }
     player.dx = 0;
     player.dy = 0;
+    player.currentTrail = 0;
 }
 
 function movePlayer() {
@@ -370,11 +457,14 @@ function movePlayer() {
         return;
     }
 
-    // Diagonal gap filling to prevent leaks
+    // Check Trail Limit
+    if (nextTile === TILE_EMPTY && player.currentTrail >= player.maxTrail) {
+        // Cannot move further
+        return;
+    }
+
+    // Diagonal gap filling
     if (player.dx !== 0 && player.dy !== 0) {
-        // If moving diagonal, fill the 'corner' to ensure 4-connectivity
-        // e.g. from 0,0 to 1,1. Fill 1,0 or 0,1.
-        // Let's fill 1,0 (nextX, currentY)
         if (grid[player.y][nextX] === TILE_EMPTY) {
             grid[player.y][nextX] = TILE_TRAIL;
         }
@@ -385,14 +475,16 @@ function movePlayer() {
 
     if (nextTile === TILE_EMPTY) {
         grid[player.y][player.x] = TILE_TRAIL;
-    } else if (nextTile === TILE_FILLED && currentTile === TILE_TRAIL) {
-        fillArea();
+        player.currentTrail++;
+    } else if (nextTile === TILE_FILLED) {
+        if (currentTile === TILE_TRAIL) {
+            fillArea();
+        }
         player.dx = 0;
         player.dy = 0;
+        player.currentTrail = 0;
     }
 }
-
-let totalFilled = 0;
 
 function fillArea() {
     // 1. Identify Bounds of the Trail (Optimization)
@@ -411,15 +503,12 @@ function fillArea() {
         }
     }
 
-    // Add margin to bounds for BFS seed search
     minR = Math.max(0, minR - 2);
     maxR = Math.min(WORLD_H - 1, maxR + 2);
     minC = Math.max(0, minC - 2);
     maxC = Math.min(WORLD_W - 1, maxC + 2);
 
-    // 2. Global Unsafe BFS (Identify all areas reachable by enemies)
-    // 0 = Unknown/Safe?, 1 = Unsafe/Enemy
-    // Use Uint8Array for speed.
+    // 2. Global Unsafe BFS
     const visited = new Uint8Array(WORLD_W * WORLD_H).fill(0);
     const queue = [];
 
@@ -428,7 +517,6 @@ function fillArea() {
         const ey = Math.floor(e.y / GRID_SIZE);
         if (ex >= 0 && ex < WORLD_W && ey >= 0 && ey < WORLD_H) {
              const idx = ey * WORLD_W + ex;
-             // Only seed if currently empty
              if (grid[ey][ex] === TILE_EMPTY) {
                  queue.push(idx);
                  visited[idx] = 1;
@@ -436,36 +524,25 @@ function fillArea() {
         }
     });
 
-    // Run Global BFS
     let head = 0;
     while(head < queue.length) {
         const idx = queue[head++];
         const cx = idx % WORLD_W;
         const cy = Math.floor(idx / WORLD_W);
 
-        // Check 4 neighbors
         if (cy > 0) checkNodeGlobal(cx, cy - 1, visited, queue);
         if (cy < WORLD_H - 1) checkNodeGlobal(cx, cy + 1, visited, queue);
         if (cx > 0) checkNodeGlobal(cx - 1, cy, visited, queue);
         if (cx < WORLD_W - 1) checkNodeGlobal(cx + 1, cy, visited, queue);
     }
 
-    // 3. Scan Bounding Box for SAFE seeds (Not Visited + Empty)
-    // And run Local Flood Fill to capture them.
+    // 3. Scan Bounding Box for SAFE seeds
     let filledCount = 0;
-
-    // We use a separate 'processed' map to avoid refilling same safe zone multiple times
-    // Re-use visited? No, visited is for Unsafe.
-    // Let's use `visited` with value 2 for "Filled/Safe".
 
     for (let r = minR; r <= maxR; r++) {
         for (let c = minC; c <= maxC; c++) {
             const idx = r * WORLD_W + c;
-
-            // If it is EMPTY and NOT visited (Unsafe), it is SAFE.
             if (grid[r][c] === TILE_EMPTY && visited[idx] === 0) {
-                // Found a seed for a safe zone!
-                // Trigger Local Fill
                 filledCount += runLocalFill(c, r, visited);
             }
         }
@@ -500,9 +577,6 @@ function runLocalFill(startX, startY, visited) {
         const cx = idx % WORLD_W;
         const cy = Math.floor(idx / WORLD_W);
 
-        // Expand neighbors
-        // Note: We don't check bounds inside 'if' because we trust the Grid logic,
-        // but let's be safe.
         const neighbors = [
             {x: cx, y: cy-1},
             {x: cx, y: cy+1},
@@ -531,8 +605,13 @@ function updateDynamicProgression() {
     // Zoom: 1.0 -> 0.3
     camera.targetZoom = 1.0 - (fillRatio * 0.7);
 
-    // Speed: 50 -> 10 (Lower is faster)
-    player.currentSpeed = Math.max(10, player.baseSpeed - (fillRatio * 40));
+    // Speed: base -> base - growth (Limit min speed to 10ms)
+    const speedReduction = fillRatio * gameConfig.playerSpeedGrowth;
+    player.currentSpeed = Math.max(10, gameConfig.playerBaseSpeed - speedReduction);
+
+    // Trail: base + growth
+    const trailIncrease = Math.floor(fillRatio * gameConfig.playerTrailGrowth);
+    player.maxTrail = gameConfig.playerBaseTrail + trailIncrease;
 }
 
 function gainXp(amount) {
@@ -605,17 +684,20 @@ function resetGame() {
     player.y = centerR - safeRadius;
     player.dx = 0;
     player.dy = 0;
+    player.currentTrail = 0;
     playerStats.hp = playerStats.maxHp;
     totalFilled = 0;
     camera.targetZoom = 1.0;
     camera.zoom = 1.0;
-    player.currentSpeed = player.baseSpeed;
+
+    updateDynamicProgression(); // Set initial speeds/limits based on 0 filled
 
     camera.x = player.x * GRID_SIZE;
     camera.y = player.y * GRID_SIZE;
 
     enemies = [];
-    for(let i=0; i<30; i++) spawnEnemy();
+    // Spawn initial wave according to config
+    for(let i=0; i<gameConfig.enemyCount; i++) spawnEnemy();
 
     projectiles = [];
     updateUI();

@@ -25,6 +25,7 @@ body {
     border: 2px solid #fff;
     margin-right: 5px;
     background-color: #000;
+    position: relative; /* For overlaying UI elements like trail bar */
 }
 
 canvas {
@@ -184,4 +185,78 @@ canvas {
 }
 ::-webkit-scrollbar-thumb {
     background: #444;
+}
+
+/* Retro Button */
+.retro-btn {
+    background-color: #444;
+    color: #fff;
+    border: 2px solid #fff;
+    font-family: 'Press Start 2P', cursive;
+    font-size: 10px;
+    padding: 5px 10px;
+    cursor: pointer;
+    margin-top: 5px;
+}
+.retro-btn:hover {
+    background-color: #666;
+}
+
+/* Settings Overlay */
+.hidden { display: none !important; }
+
+#settings-overlay {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.8);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.settings-panel {
+    width: 400px;
+    background: #222;
+    border: 4px double #888;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    font-size: 10px;
+}
+
+.setting-group {
+    display: flex;
+    flex-direction: column;
+}
+.setting-group label {
+    margin-bottom: 5px;
+    color: #ffd700;
+}
+.setting-group input {
+    width: 100%;
+}
+
+.button-row {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 10px;
+}
+
+/* Trail Gauge */
+#trail-gauge-container {
+    position: absolute;
+    bottom: 5px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 200px;
+    height: 8px;
+    background: rgba(0,0,0,0.5);
+    border: 1px solid #fff;
+}
+#trail-gauge-fill {
+    height: 100%;
+    background: #00ff00;
+    transition: width 0.1s;
 }

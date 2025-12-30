@@ -11,6 +11,9 @@
     <div class="main-layout">
         <div class="game-area-container">
             <canvas id="gameCanvas" width="640" height="480"></canvas>
+            <div id="trail-gauge-container">
+                <div id="trail-gauge-fill" style="width: 100%;"></div>
+            </div>
         </div>
 
         <div class="sidebar">
@@ -19,6 +22,7 @@
                     <div class="portrait-placeholder">HERO</div>
                 </div>
                 <div class="name-tag">ALEX</div>
+                <button id="settings-btn" class="retro-btn">CONFIG</button>
             </div>
 
             <div class="panel status-panel">
@@ -58,6 +62,58 @@
             </div>
         </div>
     </div>
+
+    <!-- Settings Overlay -->
+    <div id="settings-overlay" class="hidden">
+        <div class="settings-panel">
+            <div class="panel-title">GAME CONFIG</div>
+
+            <div class="setting-group">
+                <label>Enemy Count: <span id="val-enemy-count"></span></label>
+                <input type="range" id="cfg-enemy-count" min="0" max="100" step="1">
+            </div>
+
+            <div class="setting-group">
+                <label>Spawn Rate (ms): <span id="val-spawn-rate"></span></label>
+                <input type="range" id="cfg-spawn-rate" min="100" max="5000" step="100">
+            </div>
+
+            <div class="setting-group">
+                <label>Enemy Speed: <span id="val-enemy-speed"></span></label>
+                <input type="range" id="cfg-enemy-speed" min="10" max="500" step="10">
+            </div>
+
+            <hr>
+
+            <div class="setting-group">
+                <label>Player Base Speed (ms): <span id="val-player-speed"></span></label>
+                <input type="range" id="cfg-player-speed" min="10" max="200" step="5">
+            </div>
+
+            <div class="setting-group">
+                <label>Speed Growth: <span id="val-speed-growth"></span></label>
+                <input type="range" id="cfg-speed-growth" min="0" max="100" step="1">
+            </div>
+
+            <hr>
+
+            <div class="setting-group">
+                <label>Base Trail Limit: <span id="val-trail-limit"></span></label>
+                <input type="range" id="cfg-trail-limit" min="5" max="100" step="1">
+            </div>
+
+            <div class="setting-group">
+                <label>Trail Growth: <span id="val-trail-growth"></span></label>
+                <input type="range" id="cfg-trail-growth" min="0" max="50" step="1">
+            </div>
+
+            <div class="button-row">
+                <button id="apply-btn" class="retro-btn">RESTART GAME</button>
+                <button id="close-settings-btn" class="retro-btn">CLOSE</button>
+            </div>
+        </div>
+    </div>
+
     <script src="game.js"></script>
 </body>
 </html>
